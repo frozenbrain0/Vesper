@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/xenon/PROJECTS/cpp/http-server/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
