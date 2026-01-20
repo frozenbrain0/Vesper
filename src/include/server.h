@@ -57,6 +57,7 @@ namespace http {
             void process();
 
             void sendPlainText(HttpResponse::StatusCodes status, std::string body);
+            void sendPlainText(std::string body); // Default status: 200
     };
 
     class HttpServer : public TcpServer { // All the abstractions for http

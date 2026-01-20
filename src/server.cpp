@@ -130,6 +130,10 @@ namespace http {    // HTTP-CONNECTION responsible for translating abstractions 
         std::string http = response.toHttpString();
         send(client, http.c_str(), http.size(), 0);
     }
+
+    void HttpConnection::sendPlainText(std::string body) {
+        sendPlainText(HttpResponse::StatusCodes::OK, body);
+    }
 }
 
 namespace http {    // HTTP-RESPONSE used to convert http logic to tcp logic

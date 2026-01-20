@@ -1,14 +1,17 @@
 #include "include/server.h"
 
+// ====================
+// All functions
+// ====================
+void myHandler(http::HttpConnection& conn);
+
 int main() {
     // Start the server
     http::HttpServer server("localhost", 8080);
-
-    server.setHandler([](http::HttpConnection& conn) {
-        conn.sendPlainText(http::HttpResponse::StatusCodes::OK, "Hello World\n");
-    });
-
+    server.setHandler(myHandler);
     server.run();
+}
 
-    return 0;
+void myHandler(http::HttpConnection& conn) {
+    conn.sendPlainText("Hello World\n"); // Default status: 200
 }
