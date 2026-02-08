@@ -11,6 +11,7 @@
 
 #include "../utils/logging.h"        // My own logging library/header
 #include "../http/HttpConnection.h"
+#include "../utils/threadPool.h"
 
 namespace vesper {
     // The foundation of the program
@@ -19,6 +20,7 @@ namespace vesper {
         protected: // Allows acces for subclasses
             int listenSocket; // Socket that listens for new connections
             int port; // The port the listenSocket runs on
+            threadPool threads;
 
         public:
             TcpServer() = default; // Only creates a object

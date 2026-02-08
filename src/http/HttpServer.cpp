@@ -33,6 +33,19 @@ void HttpServer::onClient(int client) {
     // Create the object that gets access by the library user
     HttpConnection connection(client, this);
 
+    log(LogType::Debug, "Use fcntl to make recv non blocking");
+    int flags = fcntl(client, F_GETFL, 0);
+    if (flags == -1) {
+        perror("fcntl F_GETFL");
+        close(client);
+        return;
+    }
+
+    if (fcntl(client, F_SETFL, flags | O_NONBLOCK) == -1) {
+        perror("fcntl F_SETFL");
+        close(client);
+        return;
+    }
     // Getting what endpoint, method client has/wants to later run the correct
     // handler Receive data from client;
     log(LogType::Debug, "Read client request");
@@ -41,13 +54,23 @@ void HttpServer::onClient(int client) {
     std::vector<char> buffer(4096);
     while (request.find("\r\n\r\n") == std::string::npos) {
         int r = recv(client, buffer.data(), buffer.size(), 0);
-        if (r <= 0) {
-            log(LogType::Warn, "Client disconnected or recv error");
+        if (r > 0) {
+            request.append(buffer.data(), r);
+        } else if (r == 0) {
+            log(LogType::Warn, "Client closed connection");
             close(client);
             return;
+        } else { // r < 0
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // no data yet -> wait a little, then retry
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                continue;
+            } else {
+                log(LogType::Warn, "recv error");
+                close(client);
+                return;
+            }
         }
-
-        request.append(buffer.data(), r);
 
         // Prevent header abuse
         if (request.size() > 16 * 1024) {
@@ -60,7 +83,7 @@ void HttpServer::onClient(int client) {
     // Parse http data
     log(LogType::Debug, "Parse method, endpoint, version");
     char method[10], clientEndpoint[256], version[10];
-    if (sscanf(buffer.data(), "%s %s %s", method, clientEndpoint, version) !=
+    if (sscanf(request.data(), "%s %s %s", method, clientEndpoint, version) !=
         3) { // https://cplusplus.com/reference/cstdio/sscanf/
         log(LogType::Warn, "Failed to parse http request");
     }
@@ -75,40 +98,49 @@ void HttpServer::onClient(int client) {
 
     // Parse remaining headers
     log(LogType::Debug, "Parse remaining headers");
-    connection.request.headers = parseHeaders(buffer.data(), buffer.size());
-
-    // Get Body for POST requests
-    // Skip the "\r\n\r\n"
-    log(LogType::Debug, "Get Body");
-    char *body = strstr(buffer.data(), "\r\n\r\n");
-    if (body) {
-        body += 4;
-    }
+    connection.request.headers = parseHeaders(request.data(), request.size());
 
     // Get the content length
     log(LogType::Debug, "Get content length");
     int contentLength = 0;
-    char *cl = strstr(buffer.data(), "Content-Length:");
+    char *cl = strstr(request.data(), "Content-Length:");
     if (cl) {
         sscanf(cl, "Content-Length: %d", &contentLength);
     }
+
+    // Find end of headers
+    log(LogType::Debug, "Find end of headers");
+    std::string header = "";
+    int headerEnd = request.find("\r\n\r\n");
+    std::string headers = request.substr(0, headerEnd);
+    std::string body;
+    if (headerEnd + 4 < request.size()) {
+        body = request.substr(headerEnd + 4);
+    }
+
     // Save the body to postData
     log(LogType::Debug, "Save postdata");
-    std::string postData = "";
+    std::string postData = body;
     auto start = std::chrono::steady_clock::now();
-    const int maxTotalSeconds = 5;
+    const int maxTotalSeconds = 2;
     while (postData.size() < contentLength) {
         int r = recv(client, buffer.data(), buffer.size(), 0);
-        if (r <= 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                log(LogType::Warn, "Client timed out");
-            } else {
-                log(LogType::Warn, "Client disconnected or recv error");
-            }
+        if (r > 0) {
+            postData.append(buffer.data(), r);
+        } else if (r == 0) {
+            log(LogType::Warn, "Client closed during body");
             close(client);
             return;
+        } else {
+            if (errno == EAGAIN ||
+                errno == EWOULDBLOCK) { // Not a timeout — just no data yet
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            } else {
+                log(LogType::Warn, "recv error");
+                close(client);
+                return;
+            }
         }
-        postData.append(buffer.data(), r);
 
         auto now = std::chrono::steady_clock::now();
         if (std::chrono::duration_cast<std::chrono::seconds>(now - start)
@@ -119,16 +151,8 @@ void HttpServer::onClient(int client) {
         }
     }
 
-    log(LogType::Debug, "Save body to clientBuffer");
-    connection.setClientBuffer(body);
-
-    // Find end of headers
-    log(LogType::Debug, "Find end of headers");
-    std::string header = "";
-    size_t headerEnd = request.find("\r\n\r\n");
-    if (headerEnd != std::string::npos) {
-        header = request.substr(0, headerEnd);
-    }
+    log(LogType::Debug, "Save body to request.body");
+    connection.setClientBuffer(postData);
     log(LogType::Debug, "Save headers");
     connection.request.rawHeaders = header;
     log(LogType::Debug, "Save method");
@@ -139,7 +163,8 @@ void HttpServer::onClient(int client) {
     connection.request.httpVersion = version;
     bool handled = false;
 
-    // Adjust clientEndpoint given to the handlers so querys are disregarded
+    // Adjust clientEndpoint given to the handlers so querys are
+    // disregarded
     log(LogType::Debug, "Find ? for querys");
     std::string endpointStr(clientEndpoint);
     auto pos = endpointStr.find('?');
@@ -198,7 +223,8 @@ vesper::Router HttpServer::group(std::string endpoint) {
     return vesper::Router(*this, endpoint);
 }
 // Endpoint
-// Create & Save Endpoint to allEndpoints so it is handled in onClient()
+// Create & Save Endpoint to allEndpoints so it is handled in
+// onClient()
 void HttpServer::createEndpoint(std::string method, std::string endpoint,
                                 std::function<void(HttpConnection &)> h) {
     endpointsTree.addURL(endpoint, method, false, h);
@@ -214,13 +240,9 @@ void HttpServer::setMiddleware(std::string endpoint, std::string method,
     middlewareTree.addURL(endpoint, method, prefix, handler);
     log(LogType::Info, "Succesfully created middleware  [" + endpoint + "]");
 }
-// Sets a global middleware
-void HttpServer::use(std::function<void(HttpConnection &)> handler) {
-    middlewareTree.addURL("/", "ALL", true, handler);
-    log(LogType::Info, "Succesfully created middleware  [ / ]");
-}
 
-// Recursive function that goes through every Middleware to decide what to run
+// Recursive function that goes through every Middleware to decide
+// what to run
 void HttpServer::runMiddlewareChain(
     HttpConnection &c, std::vector<std::function<void(HttpConnection &)>> &mws,
     size_t index, std::function<void()> finalHandler) {
@@ -301,9 +323,5 @@ std::string Router::validatePath(std::string endpoint) {
         path = fullPath + path;
     }
     return path;
-}
-
-void Router::use(std::function<void(HttpConnection &)> mw) {
-    middlewares.push_back(std::move(mw));
 }
 } // namespace vesper

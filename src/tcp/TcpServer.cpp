@@ -8,6 +8,7 @@ namespace vesper {
 // Automatically clean up when closing
 TcpServer::~TcpServer() {
     closeServer();
+    threads.stop();
     log(LogType::Info, "Closed Server");
 }
 
@@ -74,8 +75,9 @@ void TcpServer::runServer() {
             log(LogType::Error, "Couldn't accept client");
         }
 
-        std::thread callback(&TcpServer::onClient, this, client);
-        callback.detach();
+        threads.newTask([this, client]() { onClient(client); });
+        //        std::thread callback(&TcpServer::onClient, this, client);
+        //        callback.detach();
     }
 }
 

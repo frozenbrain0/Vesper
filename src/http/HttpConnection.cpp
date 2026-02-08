@@ -197,7 +197,7 @@ void HttpConnection::next() {
 // Receive client data (POST etc.)
 std::string HttpConnection::defaultPostForm(std::string clientString,
                                             std::string defaultString) {
-    if (response.method == "GET") {
+    if (request.method == "GET") {
         return defaultString;
     }
 
@@ -205,9 +205,9 @@ std::string HttpConnection::defaultPostForm(std::string clientString,
     // because there is no '&')
     int start = 0;
     int end;
-    while ((end = response.body.find('&', start)) != std::string::npos) {
+    while ((end = request.body.find('&', start)) != std::string::npos) {
         // Get whole argument substring
-        std::string parameter = response.body.substr(start, end - start);
+        std::string parameter = request.body.substr(start, end - start);
         int equalPos = parameter.find('=');
         if (equalPos != std::string::npos) {
             // Get substring of everything before and after '='
@@ -223,7 +223,7 @@ std::string HttpConnection::defaultPostForm(std::string clientString,
 
     // Redo that for the last argument that was skipped before
     // Get whole argument substring
-    std::string lastParameter = response.body.substr(start);
+    std::string lastParameter = request.body.substr(start);
     int equalPos = lastParameter.find('=');
     if (equalPos != std::string::npos) {
         // Get substring of everything before and after '='
@@ -316,6 +316,6 @@ void HttpConnection::redirect(int statuscode, std::string endpoint) {
 void HttpConnection::setMethod(std::string method) { response.method = method; }
 
 void HttpConnection::setClientBuffer(std::string clientBuffer) {
-    response.body = clientBuffer;
+    request.body = clientBuffer;
 }
 } // namespace vesper

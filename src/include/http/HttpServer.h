@@ -2,6 +2,7 @@
 
 #include <algorithm>        // std::remove_if
 #include <netinet/tcp.h>    // Set timeout
+#include <fcntl.h>          // fcntl make recv non blocking
 
 #include "../utils/logging.h"        // My own logging library/header
 #include "../http/radixTree.h"      // Used for the tries that saves all the endpoints and middlewares
@@ -81,7 +82,15 @@ namespace vesper {
             }
 
             // Middleware
-            void use(std::function<void(HttpConnection&)> handler); // Create a global middleware that runs for everything
+            // Create a global middleware that runs for everything
+            template<typename... Handlers>
+            void use(Handlers&&... handlers) {
+                std::vector<std::function<void(HttpConnection&)>> chain = { std::forward<Handlers>(handlers)...};
+                for (int i = 0; i < chain.size(); i++) {
+                    middlewareTree.addURL("/", "ALL", true, chain[i]);
+                    log(LogType::Info, "Succesfully created middleware  [ / ]");    
+                }
+            }
            void setMiddleware(std::string endpoint, std::string method, bool prefix, std::function<void(HttpConnection &)> handler); // Create a middleware for one endpoint
 
         private:
@@ -114,7 +123,14 @@ namespace vesper {
         public:
             Router(vesper::HttpServer& server, std::string prefix);
         
-            void use(std::function<void(HttpConnection&)> mw);
+            template<typename... Handlers>
+            void use(Handlers&&... handlers) {
+                std::vector<std::function<void(HttpConnection&)>> chain = { std::forward<Handlers>(handlers)...};
+                for (int i = 0; i < chain.size(); i++) {
+                    middlewares.push_back(std::move(chain[i]));
+                    log(LogType::Info, "Succesfully created middleware [ " + prefix + " ]");
+                }
+            }
         
             // Abstractions to create different endpoints (runs createEndpoint())
             // DONT USE THE PREFIX AND CHANGE TO A FULL PATH
@@ -188,5 +204,5 @@ namespace vesper {
                 // forward handlers
                 server.HEAD(validatedPath, std::forward<Handlers>(handlers)...);
             }
-        };
+    };
 }
