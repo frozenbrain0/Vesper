@@ -9,14 +9,12 @@ namespace vesper {
 TcpServer::~TcpServer() {
     closeServer();
     threads.stop();
-    log(LogType::Info, "Closed Server");
 }
 
 // Close Tcp Socket
 void TcpServer::closeServer() {
     if (listenSocket >= 0) {
         close(listenSocket);
-        log(LogType::Info, "Closing Socket");
     }
 }
 
@@ -35,13 +33,13 @@ int TcpServer::startServer(std::string ipAddress, int port) {
     server_addr.sin_port = htons(port);
     inet_aton(ipAddress.c_str(), &server_addr.sin_addr);
 
-    log(LogType::Info, "Initialize socket");
+    // Initialize Socket
     listenSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (listenSocket < 0) {
         log(LogType::Error, "Couldn't initialize socket");
     }
 
-    log(LogType::Info, "Enable socket reuse");
+    // Enable socket reuse
     int opt = 1; // Enables this option
     if (setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) <
         0) {
@@ -49,14 +47,14 @@ int TcpServer::startServer(std::string ipAddress, int port) {
         return -1;
     }
 
-    log(LogType::Info, "Bind socket to ip-address");
+    // Bind socket to ip-address
     int bindStatus = bind(listenSocket, (struct sockaddr *)&server_addr,
                           sizeof(server_addr));
     if (bindStatus < 0) {
         log(LogType::Error, "Couldn't bind socket to ip-address");
     }
 
-    log(LogType::Info, "Listen on socket");
+    // Listen on socket
     if (listen(listenSocket, 5) != 0) {
         log(LogType::Error, "Couldn't listen on socket");
     }
@@ -66,7 +64,6 @@ int TcpServer::startServer(std::string ipAddress, int port) {
 
 // Should run multithreaded (HttpServer does that)
 void TcpServer::runServer() {
-    log(LogType::Info, "Accept client");
     // Infinitly accepts new clients on socket and forwards them by executing
     // onClient()
     while (true) {

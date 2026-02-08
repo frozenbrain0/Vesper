@@ -88,7 +88,7 @@ namespace vesper {
                 std::vector<std::function<void(HttpConnection&)>> chain = { std::forward<Handlers>(handlers)...};
                 for (int i = 0; i < chain.size(); i++) {
                     middlewareTree.addURL("/", "ALL", true, chain[i]);
-                    log(LogType::Info, "Succesfully created middleware  [ / ]");    
+                    log(LogType::Info,  "ALL /");
                 }
             }
            void setMiddleware(std::string endpoint, std::string method, bool prefix, std::function<void(HttpConnection &)> handler); // Create a middleware for one endpoint
@@ -128,7 +128,7 @@ namespace vesper {
                 std::vector<std::function<void(HttpConnection&)>> chain = { std::forward<Handlers>(handlers)...};
                 for (int i = 0; i < chain.size(); i++) {
                     middlewares.push_back(std::move(chain[i]));
-                    log(LogType::Info, "Succesfully created middleware [ " + prefix + " ]");
+                    log(LogType::Info, "ALL /");
                 }
             }
         

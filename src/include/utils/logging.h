@@ -4,10 +4,10 @@
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <iomanip>
 
 inline bool debugging = true;
-inline bool timeDebugging = true;
-inline bool ignoreWarnings = false;
+inline bool ignoreWarnings = true;
 inline std::ofstream file;
 
 enum class LogType {
@@ -17,62 +17,109 @@ enum class LogType {
     Debug
 };
 
-inline void setupLogger() { // Runs in TcpServer constructor
-    file.open("logs.txt");
+// ANSI color codes for terminal output
+inline const char* RESET  = "\033[0m";
+inline const char* RED    = "\033[31m";
+inline const char* YELLOW = "\033[33m";
+inline const char* BLUE   = "\033[34m";
+inline const char* GREEN  = "\033[32m";
+
+inline void setupLogger() {
+    file.open("logs.txt", std::ios::app);
     if (!file.is_open()) {
-        std::cerr << "Error: Could not open file." << std::endl;
-        return;
+        std::cerr << RED << "Error: Could not open log file." << RESET << std::endl;
     }
 }
 
-inline void closeLogger() { // Runs in TcpServer destructor
-    file.close();
+inline void closeLogger() {
+    if (file.is_open()) file.close();
 }
 
-inline void log(std::string message) {
+// Get formatted timestamp like Gin: 2026/02/08 - 21:33:54
+inline std::string currentTime() {
+
+    std::time_t now = std::time(nullptr);
+    std::tm tm_info;
+
+#if defined(_WIN32) || defined(_WIN64)
+    localtime_s(&tm_info, &now); // Windows safe
+#else
+    localtime_r(&now, &tm_info); // Linux/Unix safe
+#endif
+
+    char buffer[32]; // larger buffer
+    std::strftime(buffer, sizeof(buffer), "%Y/%m/%d - %H:%M:%S", &tm_info);
+    return std::string(buffer);
+}
+
+inline void log(LogType type, const std::string& message) {
     if (!debugging) return;
-    
-    std::string dt = "";
-    if (timeDebugging) {
-        time_t now = time(nullptr);
-        dt = ctime(&now);
-        dt.pop_back();
-    }
-    std::cout << dt << " " << message << '\n';
-    file << dt << " " << message << '\n';
-    file.flush();
-}
 
-inline void log(LogType logType, std::string message) {
-    if (!debugging) return;
+    std::string dt = currentTime();
+    std::string output;
+    std::string color;
 
-    std::string dt = "";
-    if (timeDebugging) {
-        time_t now = time(nullptr);
-        dt = ctime(&now);
-        dt.pop_back();
-    }
-    switch (logType) {
+    switch (type) {
         case LogType::Error:
-            std::cerr << dt << " [ERROR] " << message << '\n';
-            file << dt << " [ERROR] " << message << '\n';
-            file.flush();
+            color = RED;
+            output = dt + " [ERROR] " + message;
+            std::cerr << color << output << RESET << std::endl;
+            if (file.is_open()) file << output << '\n';
             exit(1);
-        case LogType::Info:
-            std::cout << dt << " [INFO] " << message << '\n';
-            file << dt << " [INFO] " << message << '\n';
-            file.flush();
-            break;
         case LogType::Warn:
             if (ignoreWarnings) return;
-            std::cout << dt << " [WARN] " << message << '\n';
-            file << dt << " [WARN] " << message << '\n';
-            file.flush();
+            color = YELLOW;
+            output = dt + " [WARN]  " + message;
+            std::cout << color << output << RESET << std::endl;
+            if (file.is_open()) file << output << '\n';
+            break;
+        case LogType::Info:
+            output = dt + " [INFO]  " + message;
+            std::cout << output <<  std::endl;
+            if (file.is_open()) file << output << '\n';
             break;
         case LogType::Debug:
-            std::cout << dt << " [DEBUG] " << message << '\n';
-            file << dt << " [DEBUG] " << message << '\n';
-            file.flush();
+            color = BLUE;
+            output = dt + " [DEBUG] " + message;
+            std::cout << color << output << RESET << std::endl;
+            if (file.is_open()) file << output << '\n';
             break;
+    }
+
+    if (file.is_open()) file.flush();
+}
+
+// Optional shorthand for simple logging like Gin
+inline void log(const std::string& message) {
+    log(LogType::Info, message);
+}
+
+// Used for the message when a client connected
+inline void logConnection(int status, const std::string& method, const std::string& endpoint) {
+    if (!debugging) return;
+    std::string dt = currentTime();
+    std::string color;
+
+    // Set color based on status code
+    switch (status) {
+        case 200: color = GREEN; break;
+        case 404: color = YELLOW; break;
+        case 500: color = RED; break;
+        default:  color = RESET; break;
+    }
+
+    // Build a Gin style output
+    std::ostringstream oss;
+    oss << "[VESPER] - " << dt
+        << " | " << color << status << RESET
+        << " | " << method << " \"" << endpoint << "\"";
+
+    std::string output = oss.str();
+
+    // Print to console and file
+    std::cout << output << std::endl;
+    if (file.is_open()) {
+        file << output << '\n';
+        file.flush();
     }
 }

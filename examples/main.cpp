@@ -12,9 +12,8 @@ void userIdHandler(vesper::HttpConnection &c);
 void headerHandler(vesper::HttpConnection &c);
 
 int main() {
-    debugging = true;       // Default on
-    timeDebugging = false;  // Default on
-    ignoreWarnings = false; // Default off
+    debugging = true;      // Default on
+    ignoreWarnings = true; // Default off
 
     // Start the server
     vesper::HttpServer server;

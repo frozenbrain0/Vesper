@@ -19,7 +19,6 @@ HttpServer::~HttpServer() {
 // Sets up & runs the server using the previously created objects
 void HttpServer::run(std::string ipAddress, int port) {
     setupLogger();
-    log(LogType::Info, "Starting Server");
     if (ipAddress == "localhost")
         ipAddress = "127.0.0.1";
     startServer(ipAddress, port);
@@ -28,12 +27,9 @@ void HttpServer::run(std::string ipAddress, int port) {
 
 // Decides when & at what endpoint to run the handlers
 void HttpServer::onClient(int client) {
-    log(LogType::Debug, "New Client");
-    log(LogType::Debug, "Create HttpConnection object");
     // Create the object that gets access by the library user
     HttpConnection connection(client, this);
 
-    log(LogType::Debug, "Use fcntl to make recv non blocking");
     int flags = fcntl(client, F_GETFL, 0);
     if (flags == -1) {
         perror("fcntl F_GETFL");
@@ -48,7 +44,6 @@ void HttpServer::onClient(int client) {
     }
     // Getting what endpoint, method client has/wants to later run the correct
     // handler Receive data from client;
-    log(LogType::Debug, "Read client request");
 
     std::string request;
     std::vector<char> buffer(4096);
@@ -81,7 +76,6 @@ void HttpServer::onClient(int client) {
     }
 
     // Parse http data
-    log(LogType::Debug, "Parse method, endpoint, version");
     char method[10], clientEndpoint[256], version[10];
     if (sscanf(request.data(), "%s %s %s", method, clientEndpoint, version) !=
         3) { // https://cplusplus.com/reference/cstdio/sscanf/
@@ -89,19 +83,15 @@ void HttpServer::onClient(int client) {
     }
 
     // Skip Website Logo if client connected with a browser
-    log(LogType::Debug, "Skip favicon");
     if (strcmp(clientEndpoint, "/favicon.ico") == 0) {
-        log(LogType::Debug, "Ignoring favicon request");
         close(client);
         return;
     }
 
     // Parse remaining headers
-    log(LogType::Debug, "Parse remaining headers");
     connection.request.headers = parseHeaders(request.data(), request.size());
 
     // Get the content length
-    log(LogType::Debug, "Get content length");
     int contentLength = 0;
     char *cl = strstr(request.data(), "Content-Length:");
     if (cl) {
@@ -109,7 +99,6 @@ void HttpServer::onClient(int client) {
     }
 
     // Find end of headers
-    log(LogType::Debug, "Find end of headers");
     std::string header = "";
     int headerEnd = request.find("\r\n\r\n");
     std::string headers = request.substr(0, headerEnd);
@@ -119,7 +108,6 @@ void HttpServer::onClient(int client) {
     }
 
     // Save the body to postData
-    log(LogType::Debug, "Save postdata");
     std::string postData = body;
     auto start = std::chrono::steady_clock::now();
     const int maxTotalSeconds = 2;
@@ -151,25 +139,18 @@ void HttpServer::onClient(int client) {
         }
     }
 
-    log(LogType::Debug, "Save body to request.body");
     connection.setClientBuffer(postData);
-    log(LogType::Debug, "Save headers");
     connection.request.rawHeaders = header;
-    log(LogType::Debug, "Save method");
     connection.request.method = std::string(method);
-    log(LogType::Debug, "Save endpoint");
     connection.request.path = clientEndpoint;
-    log(LogType::Debug, "Save version");
     connection.request.httpVersion = version;
     bool handled = false;
 
     // Adjust clientEndpoint given to the handlers so querys are
     // disregarded
-    log(LogType::Debug, "Find ? for querys");
     std::string endpointStr(clientEndpoint);
     auto pos = endpointStr.find('?');
     if (pos != std::string::npos) {
-        log(LogType::Debug, "Found query");
         // First get position to avoid std::out_of_range
         std::string path = endpointStr.substr(0, pos);
         std::string query = endpointStr.substr(pos + 1);
@@ -177,28 +158,22 @@ void HttpServer::onClient(int client) {
         std::snprintf(clientEndpoint, sizeof(clientEndpoint), "%s",
                       path.c_str());
         endpointStr = path;
-        log(LogType::Debug, "Save query");
         connection.request.rawQuery = decodeURL(query);
     }
 
-    log(LogType::Debug, "Get URL params");
     std::unordered_map<std::string, std::string> parameterMap =
         endpointsTree.getUrlParams(endpointStr, std::string(method));
     for (auto &pair : parameterMap) {
-        log(LogType::Debug, "Save parameter to map");
         pair.second = decodeURL(pair.second);
     }
-    log(LogType::Debug, "Save parameters map");
     connection.request.params = parameterMap;
 
     // MiddleWare / All Handlers
-    log(LogType::Debug, "Run Middleware Chain");
     std::vector<std::function<void(HttpConnection &)>> middlewares;
     middlewareTree.collectPrefixHandlers(endpointStr, method, middlewares);
 
     runMiddlewareChain(connection, middlewares, 0, [&]() {
         if (endpointsTree.matchURL(endpointStr, method)) {
-            log(LogType::Debug, "Run endpoint handler");
             auto h = endpointsTree.getNodeHandler(endpointStr, method);
             if (h) {
                 h(connection);
@@ -210,13 +185,11 @@ void HttpServer::onClient(int client) {
     if (!handled)
         connection.string(404, "");
 
-    log(LogType::Debug, "Send buffer");
     connection.sendBuffer();
-    log(LogType::Debug, "Close client connection");
     close(client);
 
-    // On the bottom so favicon.ico is skipped in the logs
-    log(LogType::Debug, "Client accepted");
+    logConnection(static_cast<int>(connection.response.status),
+                  connection.response.method, connection.request.path);
 }
 
 vesper::Router HttpServer::group(std::string endpoint) {
@@ -228,7 +201,7 @@ vesper::Router HttpServer::group(std::string endpoint) {
 void HttpServer::createEndpoint(std::string method, std::string endpoint,
                                 std::function<void(HttpConnection &)> h) {
     endpointsTree.addURL(endpoint, method, false, h);
-    log(LogType::Info, "Succesfully created endpoint [" + endpoint + "]");
+    log(LogType::Info, method + " " + endpoint);
 }
 
 // Middleware
@@ -238,7 +211,7 @@ void HttpServer::setMiddleware(std::string endpoint, std::string method,
                                bool prefix,
                                std::function<void(HttpConnection &)> handler) {
     middlewareTree.addURL(endpoint, method, prefix, handler);
-    log(LogType::Info, "Succesfully created middleware  [" + endpoint + "]");
+    log(LogType::Info, method + " " + endpoint);
 }
 
 // Recursive function that goes through every Middleware to decide
