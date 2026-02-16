@@ -103,9 +103,34 @@ namespace vesper {
                         std::vector<std::function<void(HttpConnection &)>> &mws,
                         size_t index, std::function<void()> finalHandler);
 
+            // Variables used in onClient
+            struct Context {
+                std::string request;
+                std::vector<char> buffer;
+                char method[10]{};
+                char clientEndpoint[256]{};
+                char version[10]{};
+                int contentLength = 0;
+                int headerEnd = -1;
+                std::string body;
+                std::string postData;
+                std::string endpointStr;
+            };
             // Overrides the onClient() from TcpServer
             // Decides on what endpoint & when to run what handler/middleware
             void onClient(int client) override;
+            bool receiveClientRequest(int client, Context &ctx);
+            bool parseRequestLine(Context &ctx);
+            bool shouldCloseConnection(Context &ctx);
+            void getContentLength(Context &ctx);
+            void parseHeadersAndBody(Context &ctx);
+            bool fetchPostData(int client, Context &ctx);
+            void populateConnection(HttpConnection &connection, Context &ctx);
+            void getQuery(Context &ctx, HttpConnection &connection);
+            void parseUrlParameters(Context &ctx, HttpConnection &connection);
+            void handleRequest(HttpConnection &connection, Context &ctx);
+            void finalizeRequest(HttpConnection &connection, int client);
+            
             // Used to create endpoints by functions like GET()
             void createEndpoint(std::string method, std::string endpoint, std::function<void(HttpConnection&)> h);
             std::unordered_map<std::string, std::string> parseHeaders(const char* buffer, int headerSize);

@@ -29,79 +29,112 @@ void HttpServer::run(std::string ipAddress, int port) {
 void HttpServer::onClient(int client) {
     // Create the object that gets access by the library user
     HttpConnection connection(client, this);
-
-    struct Context {
-        std::string request;
-        std::vector<char> buffer;
-        char method[10]{};
-        char clientEndpoint[256]{};
-        char version[10]{};
-        int contentLength = 0;
-        int headerEnd = -1;
-        std::string body;
-        std::string postData;
-        std::string endpointStr;
-    };
     Context ctx{};
     ctx.buffer.resize(4096);
 
     // Getting what endpoint, method client has/wants to later run the correct
     // handler Receive data from client;
-    if (!receiveRequest(client, ctx.request, ctx.buffer)) {
+    if (!receiveClientRequest(client, ctx)) {
+        // Specific logs already handled
         close(client);
         return;
     }
-
     // Parse http data
-    if (sscanf(ctx.request.data(), "%s %s %s", ctx.method, ctx.clientEndpoint,
-               ctx.version) !=
-        3) { // https://cplusplus.com/reference/cstdio/sscanf/
+    if (!parseRequestLine(ctx)) {
         log(LogType::Warn, "Failed to parse http request");
-    }
-
-    // Skip Website Logo if client connected with a browser
-    if (strcmp(ctx.clientEndpoint, "/favicon.ico") == 0) {
         close(client);
         return;
     }
-
+    // Skip Website Logo if client connected with a browser
+    if (shouldCloseConnection(ctx)) {
+        // No logs because would be annoying to log this
+        close(client);
+        return;
+    }
     // Parse remaining headers
     connection.request.headers =
         parseHeaders(ctx.request.data(), ctx.request.size());
-
     // Get the content length
+    getContentLength(ctx);
+    // Find end of headers
+    parseHeadersAndBody(ctx);
+    // Save the body to postData
+    if (!fetchPostData(client, ctx)) {
+        // Specific error is already logged
+        close(client);
+        return;
+    }
+    // Saves all the variables to connection
+    populateConnection(connection, ctx);
+    // Adjust clientEndpoint given to the handlers so querys are
+    // disregarded
+    getQuery(ctx, connection);
+    // MiddleWare / All Handlers
+    parseUrlParameters(ctx, connection);
+    // Run Middlewares and handler
+    handleRequest(connection, ctx);
+    // Close connection and logs
+    finalizeRequest(connection, client);
+}
+
+// Getting what endpoint, method client has/wants to later run the correct
+// handler Receive data from client;
+bool HttpServer::receiveClientRequest(int client, Context &ctx) {
+    return receiveRequest(client, ctx.request, ctx.buffer);
+}
+
+// https://cplusplus.com/reference/cstdio/sscanf/
+bool HttpServer::parseRequestLine(Context &ctx) {
+    return sscanf(ctx.request.data(), "%s %s %s", ctx.method,
+                  ctx.clientEndpoint, ctx.version) == 3;
+}
+
+// Skip Website Logo if client connected with a browser
+bool HttpServer::shouldCloseConnection(Context &ctx) {
+    return strcmp(ctx.clientEndpoint, "/favicon.ico") == 0;
+}
+
+void HttpServer::getContentLength(Context &ctx) {
     ctx.contentLength = 0;
     char *cl = strstr(ctx.request.data(), "Content-Length:");
     if (cl) {
         sscanf(cl, "Content-Length: %d", &ctx.contentLength);
     }
+}
 
-    // Find end of headers
+// Find end of headers
+void HttpServer::parseHeadersAndBody(Context &ctx) {
     ctx.headerEnd = ctx.request.find("\r\n\r\n");
-    if (ctx.headerEnd + 4 < ctx.request.size()) {
+    if (ctx.headerEnd != std::string::npos &&
+        ctx.headerEnd + 4 < ctx.request.size()) {
         ctx.body = ctx.request.substr(ctx.headerEnd + 4);
     }
+}
 
-    // Save the body to postData
+// Save the body to postData
+bool HttpServer::fetchPostData(int client, Context &ctx) {
     ctx.postData = ctx.body;
     if (!receivePostData(client, ctx.buffer, ctx.postData, timeout,
                          ctx.contentLength)) {
         close(client);
-        return;
+        return false;
     }
+    return true;
+}
 
+void HttpServer::populateConnection(HttpConnection &connection, Context &ctx) {
     connection.setClientBuffer(ctx.postData);
     connection.request.method = std::string(ctx.method);
     connection.request.path = ctx.clientEndpoint;
     connection.request.httpVersion = ctx.version;
-    bool handled = false;
+}
 
-    // Adjust clientEndpoint given to the handlers so querys are
-    // disregarded
+// Adjust clientEndpoint given to the handlers so querys are
+// disregarded
+void HttpServer::getQuery(Context &ctx, HttpConnection &connection) {
     ctx.endpointStr = std::string(ctx.clientEndpoint);
     auto pos = ctx.endpointStr.find('?');
     if (pos != std::string::npos) {
-        // First get position to avoid std::out_of_range
         std::string path = ctx.endpointStr.substr(0, pos);
         std::string query = ctx.endpointStr.substr(pos + 1);
 
@@ -110,18 +143,24 @@ void HttpServer::onClient(int client) {
         ctx.endpointStr = path;
         connection.request.rawQuery = decodeURL(query);
     }
+}
 
+void HttpServer::parseUrlParameters(Context &ctx, HttpConnection &connection) {
     std::unordered_map<std::string, std::string> parameterMap =
         endpointsTree.getUrlParams(ctx.endpointStr, std::string(ctx.method));
     for (auto &pair : parameterMap) {
         pair.second = decodeURL(pair.second);
     }
     connection.request.params = parameterMap;
+}
 
-    // MiddleWare / All Handlers
+void HttpServer::handleRequest(HttpConnection &connection, Context &ctx) {
+
     std::vector<std::function<void(HttpConnection &)>> middlewares;
     middlewareTree.collectPrefixHandlers(ctx.endpointStr, ctx.method,
                                          middlewares);
+
+    bool handled = false;
 
     runMiddlewareChain(connection, middlewares, 0, [&]() {
         if (endpointsTree.matchURL(ctx.endpointStr, ctx.method)) {
@@ -135,10 +174,11 @@ void HttpServer::onClient(int client) {
 
     if (!handled)
         connection.string(404, "");
+}
 
+void HttpServer::finalizeRequest(HttpConnection &connection, int client) {
     connection.sendBuffer();
     close(client);
-
     logConnection(static_cast<int>(connection.response.status),
                   connection.response.method, connection.request.path);
 }
