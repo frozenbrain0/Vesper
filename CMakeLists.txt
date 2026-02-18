@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 4.0)
 project(vesper)
+add_compile_options(-fcoroutines)
 
 # Create a library from your source files
 add_library(vesper

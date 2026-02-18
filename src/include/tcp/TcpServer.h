@@ -10,10 +10,16 @@
 #include <thread>           // multithreading for different clients
 #include <fcntl.h>          // fcntl make recv non blocking
 #include <vector>           // Used for storing the client buffer
+#include <coroutine>        // Used for the async io
+#include <sys/epoll.h>
 
 #include "../utils/logging.h"        // My own logging library/header
 #include "../http/HttpConnection.h"
 #include "../utils/threadPool.h"
+#include "../async/awaiters.h"
+#include "../async/eventLoop.h"
+#include "../async/task.h"
+#include "../async/eventLoop_fwd.h"
 
 namespace vesper {
     // The foundation of the program
@@ -30,6 +36,7 @@ namespace vesper {
 
             // Listens for new connections (clients)
             void runServer();
+            // async::Task runServer();
             // Logic on connection (overwritten in HttpServer)
             virtual void onClient(int client);
 

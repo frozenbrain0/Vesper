@@ -64,8 +64,8 @@ int TcpServer::startServer(std::string ipAddress, int port) {
 
 // Runs in HttpServer
 void TcpServer::runServer() {
-    // Infinitly accepts new clients on socket and forwards them by executing
-    // onClient()
+    // Infinitly accepts new clients on socket and forwards them by
+    // executing onClient()
     while (true) {
         int client = accept(listenSocket, nullptr, nullptr);
         if (client < 0) {
@@ -80,6 +80,20 @@ void TcpServer::runServer() {
         threads.newTask([this, client]() { onClient(client); });
     }
 }
+/*async::Task TcpServer::runServer() {
+    vesper::async::EventLoop::instance().loop();
+
+    while (true) {
+        int client = co_await async::AcceptAwaiter{listenSocket};
+
+        if (client < 0)
+            continue;
+
+        setSocketNonBlocking(client);
+
+        onClient(client); // starts another coroutine
+    }
+}*/
 
 // Just a basic placeholder
 // Is overwritten in HttpServer
@@ -165,5 +179,4 @@ bool TcpServer::receivePostData(int client, std::vector<char> &buffer,
     }
     return true;
 }
-
 } // namespace vesper
