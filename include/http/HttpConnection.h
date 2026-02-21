@@ -153,7 +153,6 @@ namespace vesper {
             // How the user can access all response internal variables/functions
             HttpResponse response{HttpResponse::StatusCodes::OK, "", "text/plain", "GET"};
 
-
             explicit HttpConnection(int client, vesper::HttpServer *server);
 
             void setMethod(std::string method);

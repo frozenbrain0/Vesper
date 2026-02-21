@@ -3,6 +3,9 @@
 #include <algorithm>        // std::remove_if
 #include <netinet/tcp.h>    // Set timeout
 #include <coroutine>
+#include <fstream>          // Open the files for static files
+#include <unordered_map>    // Used for storing mime types in getMimeType
+#include <filesystem>       // Used for getting content length of static files
 
 #include "../utils/logging.h"        // My own logging library/header
 #include "../http/radixTree.h"      // Used for the tries that saves all the endpoints and middlewares
@@ -27,6 +30,9 @@ namespace vesper {
             int timeout = 2;
             // Groups together endpoints/middleware
             vesper::Router group(std::string endpoint);
+            // Serve static files for performance
+            void staticDir(std::string endpoint, std::string folder);
+            void staticFile(std::string endpoint, std::string file);
 
             // Abstractions to create different endpoints (runs createEndpoint())
             template<typename... Handlers>
@@ -96,12 +102,18 @@ namespace vesper {
                     log(LogType::Info,  "ALL /");
                 }
             }
-           void setMiddleware(std::string endpoint, std::string method, bool prefix, std::function<void(HttpConnection &)> handler); // Create a middleware for one endpoint
+           
+            void setMiddleware(std::string endpoint, std::string method, bool prefix, std::function<void(HttpConnection &)> handler); // Create a middleware for one endpoint
 
         private:
             std::thread serverThread; // The thread the server/socket uses
             Tree endpointsTree;
             Tree middlewareTree;
+            struct staticFileInfo {
+                std::string content;
+                std::string contentType;
+            };
+            std::unordered_map<std::string,  staticFileInfo> staticFilesMap; // endpoint, { content, contentType }
             
             // Recursive function which loops over every middleware in an onion style
             void runMiddlewareChain(HttpConnection &conn,
@@ -129,6 +141,9 @@ namespace vesper {
             // Used to create endpoints by functions like GET()
             void createEndpoint(std::string method, std::string endpoint, std::function<void(HttpConnection&)> h);
             std::unordered_map<std::string, std::string> parseHeaders(const char* buffer, int headerSize);
+            
+            // Used when serving static files
+            std::string getMimeType(std::string file);
     };
 }
 

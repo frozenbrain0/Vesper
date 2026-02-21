@@ -1,12 +1,5 @@
 Documentation
 =============
-    
-| **Create Endpoints**
-| Use the functions GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD on the server object to create a new Endpoint.
-
-.. code-block:: cpp
-
-    server.GET("/", handler);
 
 | **Create Endpoints**
 | Use the functions GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD on the server object to create a new Endpoint.

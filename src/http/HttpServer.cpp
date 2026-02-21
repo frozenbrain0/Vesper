@@ -184,6 +184,43 @@ void HttpServer::handleRequest(int client, HttpConnection &connection,
                   connection.response.method, connection.request.path);
 }
 
+// Header Parsing
+std::unordered_map<std::string, std::string>
+HttpServer::parseHeaders(const char *buffer, int headerSize) {
+    std::unordered_map<std::string, std::string> receivedHeaders;
+    std::string headerStr(buffer, headerSize);
+    // https://stackoverflow.com/questions/12514510/iterate-through-lines-in-a-string-c
+    std::istringstream stream(headerStr);
+    std::string line;
+
+    while (std::getline(stream, line)) {
+        // Remove new line character at the end of the line
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
+
+        if (line.empty())
+            break;
+
+        // Split key and value
+        int colon = line.find(':');
+        if (colon == std::string::npos)
+            continue;
+
+        std::string key = line.substr(0, colon);
+        std::string value = line.substr(colon + 1);
+
+        // Remove white spaces
+        // https://stackoverflow.com/questions/83439/remove-spaces-from-stdstring-in-c
+        key.erase(std::remove_if(key.begin(), key.end(), ::isspace), key.end());
+        // Erase from 0 to the first non space/tab character
+        value.erase(0, value.find_first_not_of(" \t"));
+
+        receivedHeaders[key] = value;
+    }
+
+    return receivedHeaders;
+}
+
 // =============
 // onClient over
 // =============
@@ -191,6 +228,129 @@ void HttpServer::handleRequest(int client, HttpConnection &connection,
 vesper::Router HttpServer::group(std::string endpoint) {
     return vesper::Router(*this, endpoint);
 }
+
+void HttpServer::staticDir(std::string endpoint, std::string folder) {
+
+    if (!std::filesystem::exists(folder) ||
+        !std::filesystem::is_directory(folder)) {
+        log(LogType::Warn,
+            "Directory \"" + folder + "\" doesn't exist or is not a directory");
+        return;
+    }
+
+    for (const auto &entry : std::filesystem::directory_iterator(folder)) {
+        if (!entry.is_regular_file())
+            continue;
+
+        std::string filePath = entry.path().string();
+
+        std::string relativePath = entry.path().filename().string();
+
+        std::string fileEndpoint = endpoint;
+
+        if (!fileEndpoint.empty() && fileEndpoint.back() != '/')
+            fileEndpoint += '/';
+
+        fileEndpoint += relativePath;
+
+        staticFile(fileEndpoint, filePath);
+    }
+}
+
+void HttpServer::staticFile(std::string endpoint, std::string file) {
+    if (!std::filesystem::exists(file)) {
+        log(LogType::Warn, "File \"" + file + "\" doesn't exist");
+        return;
+    }
+
+    std::ifstream f(file, std::ios::binary);
+    if (!f) {
+        log(LogType::Warn, "Couldn't open file \"" + file + "\"");
+        return;
+    }
+
+    // Read file fully
+    std::string content((std::istreambuf_iterator<char>(f)),
+                        std::istreambuf_iterator<char>());
+
+    staticFileInfo sf;
+    sf.content = content;
+    sf.contentType = getMimeType(file);
+    staticFilesMap[endpoint] = sf;
+
+    auto handler = [this](vesper::HttpConnection &c) {
+        if (c.request.method == "GET" || c.request.method == "HEAD") {
+            c.header("X-Content-Type-Options", "nosniff");
+            c.header("Content-Security-Policy", "default-src 'self';");
+            c.header("X-Frame-Options", "DENY");
+            staticFileInfo file = staticFilesMap[c.request.path];
+            c.data(file.contentType, file.content);
+        } else {
+            c.string("");
+        }
+    };
+    endpointsTree.addURL(endpoint, "GET", false, handler);
+}
+
+std::string HttpServer::getMimeType(std::string file) {
+    static const std::unordered_map<std::string, std::string> mimeMap = {
+        // Text
+        {"txt", "text/plain"},
+        {"html", "text/html"},
+        {"htm", "text/html"},
+        {"css", "text/css"},
+        {"csv", "text/csv"},
+        {"js", "application/javascript"},
+        {"json", "application/json"},
+        {"xml", "application/xml"},
+
+        // Images
+        {"png", "image/png"},
+        {"jpg", "image/jpeg"},
+        {"jpeg", "image/jpeg"},
+        {"gif", "image/gif"},
+        {"bmp", "image/bmp"},
+        {"webp", "image/webp"},
+        {"svg", "image/svg+xml"},
+        {"ico", "image/x-icon"},
+
+        // Fonts
+        {"ttf", "font/ttf"},
+        {"otf", "font/otf"},
+        {"woff", "font/woff"},
+        {"woff2", "font/woff2"},
+
+        // Documents
+        {"pdf", "application/pdf"},
+        {"zip", "application/zip"},
+        {"gz", "application/gzip"},
+        {"tar", "application/x-tar"},
+
+        // Media
+        {"mp3", "audio/mpeg"},
+        {"wav", "audio/wav"},
+        {"mp4", "video/mp4"},
+        {"webm", "video/webm"},
+        {"ogg", "audio/ogg"},
+        {"ogv", "video/ogg"}};
+
+    size_t dotPos = file.find_last_of('.');
+    if (dotPos == std::string::npos || dotPos + 1 >= file.size()) {
+        log(LogType::Warn, "Invalid file");
+        return "application/octet-stream";
+    }
+
+    std::string extension = file.substr(dotPos + 1);
+
+    auto it = mimeMap.find(extension);
+    if (it != mimeMap.end()) {
+        return it->second;
+    }
+
+    // Safe fallback
+    return "application/octet-stream";
+}
+
 // Endpoint
 // Create & Save Endpoint to allEndpoints so it is handled in
 // onClient()
@@ -234,43 +394,6 @@ void HttpServer::runMiddlewareChain(
     if (!nextCalled) {
         return;
     }
-}
-
-// Header Parsing
-std::unordered_map<std::string, std::string>
-HttpServer::parseHeaders(const char *buffer, int headerSize) {
-    std::unordered_map<std::string, std::string> receivedHeaders;
-    std::string headerStr(buffer, headerSize);
-    // https://stackoverflow.com/questions/12514510/iterate-through-lines-in-a-string-c
-    std::istringstream stream(headerStr);
-    std::string line;
-
-    while (std::getline(stream, line)) {
-        // Remove new line character at the end of the line
-        if (!line.empty() && line.back() == '\r')
-            line.pop_back();
-
-        if (line.empty())
-            break;
-
-        // Split key and value
-        int colon = line.find(':');
-        if (colon == std::string::npos)
-            continue;
-
-        std::string key = line.substr(0, colon);
-        std::string value = line.substr(colon + 1);
-
-        // Remove white spaces
-        // https://stackoverflow.com/questions/83439/remove-spaces-from-stdstring-in-c
-        key.erase(std::remove_if(key.begin(), key.end(), ::isspace), key.end());
-        // Erase from 0 to the first non space/tab character
-        value.erase(0, value.find_first_not_of(" \t"));
-
-        receivedHeaders[key] = value;
-    }
-
-    return receivedHeaders;
 }
 } // namespace vesper
 
