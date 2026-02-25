@@ -64,13 +64,13 @@ void myHandler(vesper::HttpConnection &c) {
 }
 
 // Test endpoint: return JSON
+struct Test {
+    std::string status = "OK";
+    std::string message = "This is a test JSON response";
+};
 void testEndpoint(vesper::HttpConnection &c) {
-    const char *json = R"(
-        {
-            "status": "OK",
-            "message": "This is a test JSON response"
-        }
-    )";
+    Test t;
+    std::string json = c.shouldBindJson(t);
 
     c.json(json);
     // c.redirect("/");

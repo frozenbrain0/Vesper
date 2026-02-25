@@ -33,7 +33,14 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/madler/zlib.git
   GIT_TAG v1.3.1
 )
-
 FetchContent_MakeAvailable(zlib)
-
 target_link_libraries(vesper PRIVATE zlib)
+
+FetchContent_Declare(
+  glaze
+  GIT_REPOSITORY https://github.com/stephenberry/glaze.git
+  GIT_TAG main
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(glaze)
+target_link_libraries(vesper PUBLIC glaze::glaze)

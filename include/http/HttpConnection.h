@@ -7,6 +7,7 @@
 
 #include "../utils/logging.h"
 #include "../http/radixTree.h"      // Used for the tries that saves all the endpoints and middlewares
+#include "../include/utils/configParser.h" // The abstractions for glaze
 
 namespace vesper {
     class HttpServer;
@@ -195,5 +196,13 @@ namespace vesper {
             void setCookie(std::string name, std::string value, bool secure, bool httpOnly);
             void setCookie(std::string name, std::string value);
             std::string cookies(std::string clientString);
+            
+            // Glaze abstractions called in configParser.h
+            template <typename T> [[nodiscard]]
+            std::string shouldBindJson(const T& value) { return bindJson(value); }
+            template <typename T> [[nodiscard]]
+            std::string shouldBindYaml(const T& value) { return bindYaml(value); }
+            template <typename T> [[nodiscard]]
+            std::string shouldBindToml(const T& value) { return bindToml(value); }
     };
 }
