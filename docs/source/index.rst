@@ -42,8 +42,8 @@ How to use
     // ====================
     // All functions
     // ====================
-    void myHandler(http::HttpConnection& c);
-    void testEndpoint(http::HttpConnection& c);
+    void myHandler(vesper::HttpConnection& c);
+    void testEndpoint(vesper::HttpConnection& c);
     
     int main() {
         // Start the server
@@ -56,11 +56,11 @@ How to use
         server.run("localhost", 8080);
     }
     
-    void myHandler(http::HttpConnection& c) {
+    void myHandler(vesper::HttpConnection& c) {
         c.string("Hello World");
     }
     
-    void testEndpoint(http::HttpConnection& c) {
+    void testEndpoint(vesper::HttpConnection& c) {
         const char* json = R"(
         {
           "status": "OK",

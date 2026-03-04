@@ -25,8 +25,8 @@
 // ====================
 // All functions
 // ====================
-void myHandler(http::HttpConnection& c);
-void testEndpoint(http::HttpConnection& c);
+void myHandler(vesper::HttpConnection& c);
+void testEndpoint(vesper::HttpConnection& c);
 
 int main() {
     // Start the server
@@ -39,46 +39,47 @@ int main() {
     server.run("localhost", 8080);
 }
 
-void myHandler(http::HttpConnection& c) {
-  c.string("Hello World");
+void myHandler(vesper::HttpConnection& c) {
+    c.string("Hello World");
 }
 
-void testEndpoint(http::HttpConnection& c) {
-  const char* json = R"(
+void testEndpoint(vesper::HttpConnection& c) {
+    const char* json = R"(
     {
       "status": "OK",
-      "message": "This is a test JSON response"
+      "message": "This is a test.SON response"
     }
-  )";
+    )";
 
-  c.json(json);
-  // c.data("application/json", Status::OK, json); Also possible
+    c.json(json);
+    // c.data("application/json", Status::OK, json); Also possible
 }
 ```
 
-# Installation
+# For basic use
+Add this to your CMakeLists
+
+```CMake
+    include(FetchContent)
+    
+    FetchContent_Declare(
+      vesper
+      GIT_REPOSITORY https://github.com/X3NON-11/Vesper
+      GIT_TAG prerelease_0.95
+    )
+    
+    FetchContent_MakeAvailable(vesper)
+    
+    target_link_libraries(test PRIVATE vesper::vesper)
+```
+    
+Or if you want a manually downloaded Version
 1. Download zip file from releases
 2. Add to CMakeLists like this
-```CMake
-# Add the include directory for the library headers
-target_include_directories(example1 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/libs/vesper)
 
-# Link the static library
-target_link_libraries(example1 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/libs/vesper/libvesper.a)
-```
-Or if you don't want to download it manually you can add this to your CMakeLists
-```CMake
-include(FetchContent)
-
-FetchContent_Declare(
-  vesper
-  GIT_REPOSITORY https://github.com/X3NON-11/Vesper
-  GIT_TAG prerelease_0.95
-)
-
-FetchContent_MakeAvailable(vesper)
-
-target_link_libraries(example1 PRIVATE vesper)
+```CMake  
+    add_subdirectory(libs/vesper)    
+    target_link_libraries(test PRIVATE vesper::vesper)
 ```
 
 # Documentation  

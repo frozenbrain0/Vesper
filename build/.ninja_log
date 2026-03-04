@@ -1,9 +1,9 @@
 # ninja log v7
-4	411	1772634024446206586	build.ninja	903bd78c8a8805a7
+2	415	1772635745920002646	build.ninja	903bd78c8a8805a7
 5068	5184	1772633979827703944	libvesper.a	3a60135a4562a23c
-4	411	1772634024445731301	/home/xenon/PROJECTS/cpp/vesper/build/cmake_install.cmake	903bd78c8a8805a7
+2	415	1772635745919577339	/home/xenon/PROJECTS/cpp/vesper/build/cmake_install.cmake	903bd78c8a8805a7
 11	4580	1772633974771082118	CMakeFiles/vesper-app.dir/examples/main.cpp.o	ec327ac8dce11817
-3875	4000	1772471698640490381	vesper-app	2fdd32d84dc47552
+3	110	1772634024456032483	vesper-app	c22ca31606b71537
 10	1826	1772633974770272495	CMakeFiles/vesper.dir/src/http/radixTree.cpp.o	7e7590744cd0aff8
 10	1567	1772633974770449692	CMakeFiles/vesper.dir/src/utils/urlEncoding.cpp.o	7d13d8cf7abf0492
 10	4526	1772633974770087135	CMakeFiles/vesper.dir/src/tcp/TcpServer.cpp.o	19449e008310febe
@@ -54,7 +54,7 @@
 825	862	1772278460831783691	_deps/zlib-build/minigzip64	5b3380a1a0315cb
 4	411	1772633974751671224	/home/xenon/PROJECTS/cpp/vesper/build/_deps/zlib-build/cmake_install.cmake	903bd78c8a8805a7
 4	411	1772633974751671224	/home/xenon/PROJECTS/cpp/vesper/build/_deps/zlib-build/CTestTestfile.cmake	903bd78c8a8805a7
-4	411	1772634024446206586	/home/xenon/PROJECTS/cpp/vesper/build/_deps/glaze-build/cmake_install.cmake	903bd78c8a8805a7
+2	415	1772635745920002646	/home/xenon/PROJECTS/cpp/vesper/build/_deps/glaze-build/cmake_install.cmake	903bd78c8a8805a7
 4	478	1772274234130126083	CMakeFiles/vesper.dir/src/tcp/TcpServer.cpp.o.ddi	7604c9808423e090
 5	205	1772274234130499474	CMakeFiles/vesper.dir/src/utils/urlEncoding.cpp.o.ddi	dc1e8c3c0388b52a
 4	478	1772274234128204076	CMakeFiles/vesper.dir/src/http/HttpServer.cpp.o.ddi	63822532f89db94f
@@ -73,7 +73,8 @@
 4	15	1772276797790366174	CMakeFiles/vesper-app.dir/CXX.dd	29234ca5d8416d75
 4	15	1772276797790366174	CMakeFiles/vesper-app.dir/CXXModules.json	29234ca5d8416d75
 4	15	1772276797790366174	CMakeFiles/vesper-app.dir/examples/main.cpp.o.modmap	29234ca5d8416d75
-2	415	1772634024446206586	build.ninja	903bd78c8a8805a7
-2	415	1772634024446206586	/home/xenon/PROJECTS/cpp/vesper/build/cmake_install.cmake	903bd78c8a8805a7
-2	415	1772634024446206586	/home/xenon/PROJECTS/cpp/vesper/build/_deps/glaze-build/cmake_install.cmake	903bd78c8a8805a7
-3	110	1772634024456032483	vesper-app	c22ca31606b71537
+3	410	1772635745920002646	build.ninja	903bd78c8a8805a7
+3	410	1772635745920002646	/home/xenon/PROJECTS/cpp/vesper/build/cmake_install.cmake	903bd78c8a8805a7
+3	410	1772635745920002646	/home/xenon/PROJECTS/cpp/vesper/build/_deps/glaze-build/cmake_install.cmake	903bd78c8a8805a7
+3	3643	1772635745930454156	CMakeFiles/vesper-app.dir/examples/main.cpp.o	ec327ac8dce11817
+3643	3726	1772635749570475317	vesper-app	c22ca31606b71537

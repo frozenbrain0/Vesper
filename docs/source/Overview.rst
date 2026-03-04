@@ -34,19 +34,16 @@ Installation
     
     FetchContent_MakeAvailable(vesper)
     
-    target_link_libraries(example1 PRIVATE vesper)
+    target_link_libraries(test PRIVATE vesper::vesper)
     
 | Or if you want a manually downloaded Version
 | 1. Download zip file from releases
 | 2. Add to CMakeLists like this
 
 .. code-block:: cmake
-
-    # Add the include directory for the library headers
-    target_include_directories(example1 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/libs/vesper)
-
-    # Link the static library
-    target_link_libraries(example1 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/libs/vesper/libvesper.a)
+    
+    add_subdirectory(libs/vesper)    
+    target_link_libraries(test PRIVATE vesper::vesper)
     
 | **For Development**
 | 1. Download the library (git clone git@github.com:X3NON-11/Vesper.git)
