@@ -78,3 +78,7 @@
 3	410	1772635745920002646	/home/xenon/PROJECTS/cpp/vesper/build/_deps/glaze-build/cmake_install.cmake	903bd78c8a8805a7
 3	3643	1772635745930454156	CMakeFiles/vesper-app.dir/examples/main.cpp.o	ec327ac8dce11817
 3643	3726	1772635749570475317	vesper-app	c22ca31606b71537
+15	3992	1772663552608631905	CMakeFiles/vesper-app.dir/examples/main.cpp.o	ec327ac8dce11817
+15	4449	1772663552606944656	CMakeFiles/vesper.dir/src/http/HttpServer.cpp.o	b2e5b7ac46335f51
+4449	4572	1772663557041040949	libvesper.a	3a60135a4562a23c
+4572	4707	1772663557164043618	vesper-app	c22ca31606b71537
