@@ -14,51 +14,17 @@ TcpServer::~TcpServer() {
 // Close Tcp Socket
 void TcpServer::closeServer() {
     if (listenSocket >= 0) {
-        closeSocket(listenSocket);
+        close(listenSocket);
     }
 }
 
 // Sets up a basic Tcp Socket
-socketT TcpServer::startServer(std::string ipAddress, int port) {
-#ifdef _WIN32
-    // https://stackoverflow.com/questions/37266805/tcpclient-class-in-c-microsoft-visual-studio-example
-    // Initialize Winsock
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        log(LogType::Error, "WSAStartup failed");
-        return 1;
+int TcpServer::startServer(std::string ipAddress, int port) {
+    if (!isValidIP(ipAddress)) {
+        log(LogType::Error, "Invalid Ip Address");
+        return -1;
     }
 
-    // Create a socket
-    SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (serverSocket == INVALID_SOCKET) {
-        log(LogType::Error, "Socket creation failed: " + WSAGetLastError());
-        WSACleanup();
-        return 1;
-    }
-
-    // Bind the socket to an IP address and port
-    sockaddr_in service;
-    service.sin_family = AF_INET;
-    service.sin_addr.s_addr = inet_addr("127.0.0.1"); // Replace with desired IP
-    service.sin_port = htons(55555);                  // Port number
-
-    if (bind(serverSocket, (sockaddr *)&service, sizeof(service)) ==
-        SOCKET_ERROR) {
-        log(LogType::Error, "Bind failed " + WSAGetLastError());
-        closesocket(serverSocket);
-        WSACleanup();
-        return 1;
-    }
-
-    // Listen for incoming connections
-    if (listen(serverSocket, 1) == SOCKET_ERROR) {
-        log(LogType::Error, "Listen failed: " + WSAGetLastError());
-        closesocket(serverSocket);
-        WSACleanup();
-        return 1;
-    }
-#else
     /*  ##### Inspiration #####
 
         https://github.com/bozkurthan/Simple-TCP-Server-Client-CPP-Example/blob/master/tcp-Server.cpp
@@ -76,6 +42,7 @@ socketT TcpServer::startServer(std::string ipAddress, int port) {
     listenSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (listenSocket < 0) {
         log(LogType::Error, "Couldn't initialize socket");
+        return -1;
     }
 
     // Enable socket reuse
@@ -91,20 +58,21 @@ socketT TcpServer::startServer(std::string ipAddress, int port) {
                           sizeof(server_addr));
     if (bindStatus < 0) {
         log(LogType::Error, "Couldn't bind socket to ip-address");
+        return -1;
     }
 
     // Listen on socket
     if (listen(listenSocket, 5) != 0) {
         log(LogType::Error, "Couldn't listen on socket");
+        return -1;
     }
-#endif
 
     return 0;
 }
 
 async::Task TcpServer::runServer() {
     while (true) {
-        socketT client = co_await async::AcceptAwaiter{listenSocket};
+        int client = co_await async::AcceptAwaiter{listenSocket};
 
         if (client < 0)
             continue;
@@ -117,22 +85,16 @@ async::Task TcpServer::runServer() {
 
 // Just a basic placeholder
 // Is overwritten in HttpServer
-async::Task TcpServer::onClient(socketT client) {
+async::Task TcpServer::onClient(int client) {
     log(LogType::Info, "Client accepted");
     const char *message = "No Handler parsed\n";
     send(client, message, strlen(message), 0);
-    closeSocket(client);
+    close(client);
     co_return;
 }
 
 // Functions that use Linux only functions
-bool TcpServer::setSocketNonBlocking(socketT client) {
-#ifdef _WIN32
-    u_long iMode = 1;
-    if (ioctlsocket(client, FIONBIO, &iMode) != NO_ERROR) {
-        log(LogType::Warn, "Failed to set socket to non blocking");
-    }
-#else
+bool TcpServer::setSocketNonBlocking(int client) {
     int flags = fcntl(client, F_GETFL, 0);
     if (flags == -1) {
         log(LogType::Warn, "fcntl F_GETFL");
@@ -143,8 +105,12 @@ bool TcpServer::setSocketNonBlocking(socketT client) {
         log(LogType::Warn, "fcntl F_SETFL");
         return false;
     }
-#endif
 
     return true;
+}
+
+bool TcpServer::isValidIP(const std::string &ip) {
+    struct sockaddr_in sa;
+    return inet_pton(AF_INET, ip.c_str(), &(sa.sin_addr)) == 1;
 }
 } // namespace vesper

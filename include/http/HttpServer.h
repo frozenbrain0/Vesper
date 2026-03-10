@@ -30,6 +30,9 @@ namespace vesper {
             std::string domain = "";
             void run(std::string ipAddress, int port); // Runs startServer & runServer on a different thread
             int timeout = 2;
+            void onError(std::function<void()> h) {
+                errorHandler = std::move(h);
+            }
             // Groups together endpoints/middleware
             vesper::Router group(std::string endpoint);
             // Serve static files for performance
@@ -137,8 +140,8 @@ namespace vesper {
             };
             // Overrides the onClient() from TcpServer
             // Decides on what endpoint & when to run what handler/middleware
-            async::Task onClient(socketT client) override;
-            void handleRequest(socketT client, HttpConnection &connection, Context &ctx);
+            async::Task onClient(int client) override;
+            void handleRequest(int client, HttpConnection &connection, Context &ctx);
             
             // Used to create endpoints by functions like GET()
             void createEndpoint(std::string method, std::string endpoint, std::function<void(HttpConnection&)> h);

@@ -29,13 +29,15 @@ int main() {
     server.GET("/query", queryHandler);
     server.GET("/header", headerHandler);
     server.GET("/cookies", cookies);
-    // server.staticFile("/asset", "/home/xenon/Bilder/ProfilePicture.png");
+    // server.staticFile("/asset", "PicturePath");
     // server.staticDir("/asset", "PicturesPath");
 
     vesper::Router group = server.group("/user");
     group.use(testMiddleware);
     group.GET("/:id", userIdHandler);
     group.GET("/test", testEndpoint);
+
+    // server.onError([]() { exit(0); });
 
     server.run("localhost", 8080);
 }

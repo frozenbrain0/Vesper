@@ -7,7 +7,6 @@
 #include "../utils/logging.h"
 #include "../http/radixTree.h"     // Used for the tries that saves all the endpoints and middlewares
 #include "../utils/configParser.h" // The abstractions for glaze
-#include "../tcp/osFuncs.h"        // Windows and Linux specific abstractions
 
 namespace vesper {
     class HttpServer;
@@ -145,7 +144,7 @@ namespace vesper {
     class HttpConnection {
         private:
             vesper::HttpServer* server;
-            socketT client;
+            int client;
             std::function<void()> nextFn;
 
         public:
@@ -155,7 +154,7 @@ namespace vesper {
             // How the user can access all response internal variables/functions
             HttpResponse response{HttpResponse::StatusCodes::OK, "", "text/plain", "GET"};
 
-            explicit HttpConnection(socketT client, vesper::HttpServer *server);
+            explicit HttpConnection(int client, vesper::HttpServer *server);
 
             void setMethod(std::string method);
             void setClientBuffer(std::string bodyBuffer);

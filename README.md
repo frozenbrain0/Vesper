@@ -56,7 +56,7 @@ void testEndpoint(vesper::HttpConnection& c) {
 }
 ```
 
-# For basic use
+# Installation
 Add this to your CMakeLists
 
 ```CMake
@@ -83,6 +83,9 @@ Or if you want a manually downloaded Version
 ```
 
 # Documentation  
+**Important**
+For further documentation download the repository and open the sphinx documentation 
+under the build folder (e.g. on Linux then run ./docs.sh)
 **Create Endpoints**  
 Use the functions GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD on the server object to create a new Endpoint.
 ```C++

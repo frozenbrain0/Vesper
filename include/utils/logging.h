@@ -6,6 +6,7 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
+#include <functional>
 
 inline bool debugging = true;
 inline bool ignoreWarnings = true;
@@ -25,6 +26,8 @@ inline const char* YELLOW = "\033[33m";
 inline const char* BLUE   = "\033[34m";
 inline const char* GREEN  = "\033[32m";
 
+inline std::function<void()> errorHandler;
+
 inline void setupLogger() {
     file.open("logs.txt");
     if (!file.is_open()) {
@@ -38,7 +41,6 @@ inline void closeLogger() {
 
 // Get formatted timestamp like Gin: 2026/02/08 - 21:33:54
 inline std::string currentTime() {
-
     std::time_t now = std::time(nullptr);
     std::tm tm_info;
 
@@ -66,7 +68,9 @@ inline void log(LogType type, const std::string& message) {
             output = "[ERROR] " + dt + " | " +  message;
             std::cerr << color << output << RESET << std::endl;
             if (file.is_open()) file << output << '\n';
-            exit(1);
+            if (errorHandler)
+                errorHandler();
+            break;
         case LogType::Warn:
             if (ignoreWarnings) return;
             color = YELLOW;

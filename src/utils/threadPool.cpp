@@ -15,8 +15,11 @@ void threadPool::newTask(std::function<void()> handler) {
 }
 
 void threadPool::stop() {
-    std::unique_lock<std::mutex> lock(tasksMutex);
-    shouldTerminate = true;
+    // These brackets are necessary to define when lock goes out of scope
+    {
+        std::unique_lock<std::mutex> lock(tasksMutex);
+        shouldTerminate = true;
+    }
     mutexCondition.notify_all();
     for (std::thread &activeThread : threads) {
         activeThread.join();

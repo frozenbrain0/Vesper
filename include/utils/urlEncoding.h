@@ -5,4 +5,4 @@
 #include <cctype>
 #include <string>
 
-std::string decodeURL(std::string &url);
+std::string decodeURL(const std::string &url);

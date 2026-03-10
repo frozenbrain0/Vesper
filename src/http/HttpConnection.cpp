@@ -35,26 +35,40 @@ HttpResponse::HttpResponse(StatusCodes status, std::string body,
 }
 
 std::string HttpResponse::toHttpString() {
+    // This should be faster even though I can't measure a difference from just
+    // doing response +='
     std::string response;
+    response.reserve(1024);
 
     // Status line
-    response += "HTTP/1.1 " + std::to_string(static_cast<int>(status)) + " " +
-                statusToString(status) + "\r\n";
+    response.append("HTTP/1.1 ");
+    response.append(std::to_string(static_cast<int>(status)));
+    response.append(" ");
+    response.append(statusToString(status));
+    response.append("\r\n");
 
     // Required / default headers
-    response += "Content-Type: " + contentType + "\r\n";
-    response += "Content-Length: " + std::to_string(body.size()) + "\r\n";
+    response.append("Content-Type: ");
+    response.append(contentType);
+    response.append("\r\n");
+
+    response.append("Content-Length: ");
+    response.append(std::to_string(body.size()));
+    response.append("\r\n");
 
     // Custom headers
     for (const auto &[key, value] : headers) {
-        response += key + ": " + value + "\r\n";
+        response.append(key);
+        response.append(": ");
+        response.append(value);
+        response.append("\r\n");
     }
 
     // End of headers
-    response += "\r\n";
+    response.append("\r\n");
 
     // Body
-    response += body;
+    response.append(body);
 
     return response;
 }
@@ -91,7 +105,7 @@ void HttpResponse::removeHeader(std::string &name) { headers.erase(name); }
 // HTTP-CONNECTION
 // ===============
 
-HttpConnection::HttpConnection(socketT client, vesper::HttpServer *server)
+HttpConnection::HttpConnection(int client, vesper::HttpServer *server)
     : client(client), server(server) {}
 
 // All abstractions like c.string to send plain text
@@ -288,20 +302,20 @@ std::string HttpConnection::getHeader(std::string clientHeader) {
 void HttpConnection::redirect(std::string endpoint) {
     status(302); // Not found
     header("Location", endpoint);
-    closeSocket(client);
+    close(client);
 }
 
 void HttpConnection::redirect(vesper::HttpResponse::StatusCodes statuscode,
                               std::string endpoint) {
     status(statuscode);
     header("Location", endpoint);
-    closeSocket(client);
+    close(client);
 }
 
 void HttpConnection::redirect(int statuscode, std::string endpoint) {
     status(static_cast<int>(statuscode));
     header("Location", endpoint);
-    closeSocket(client);
+    close(client);
 }
 
 void HttpConnection::setCookie(std::string name, std::string value, int maxAge,

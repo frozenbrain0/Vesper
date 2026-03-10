@@ -19,16 +19,16 @@ HttpServer::~HttpServer() {
 // Sets up & runs the server using the previously created objects
 void HttpServer::run(std::string ipAddress, int port) {
     setupLogger();
-    domain = ipAddress;
     if (ipAddress == "localhost")
         ipAddress = "127.0.0.1";
-    startServer(ipAddress, port);
+    domain = ipAddress;
+    startServer(domain, port);
     serverThread = std::thread(&TcpServer::runServer, this);
     async::EventLoop::instance().loop();
 }
 
 // Decides when & at what endpoint to run the handlers
-async::Task HttpServer::onClient(socketT client) {
+async::Task HttpServer::onClient(int client) {
     // Create the object that gets access by the library user
     HttpConnection connection(client, this);
     Context ctx{};
@@ -44,7 +44,7 @@ async::Task HttpServer::onClient(socketT client) {
             ctx.request.append(ctx.buffer.data(), r);
         } else if (r == 0) {
             log(LogType::Warn, "Client closed connection");
-            closeSocket(client);
+            close(client);
             co_return;
         } else { // r < 0
             log(LogType::Warn, "recv error");
@@ -54,7 +54,7 @@ async::Task HttpServer::onClient(socketT client) {
         // Prevent header abuse
         if (ctx.request.size() > 16 * 1024) {
             log(LogType::Warn, "HTTP headers too large");
-            closeSocket(client);
+            close(client);
             co_return;
         }
     }
@@ -64,13 +64,13 @@ async::Task HttpServer::onClient(socketT client) {
     if (sscanf(ctx.request.data(), "%s %s %s", ctx.method, ctx.clientEndpoint,
                ctx.version) != 3) {
         log(LogType::Warn, "Failed to parse http header");
-        closeSocket(client);
+        close(client);
         co_return;
     }
 
     // Skip Website Logo if client connected with a browser
     if (strcmp(ctx.clientEndpoint, "/favicon.ico") == 0) {
-        closeSocket(client);
+        close(client);
         co_return;
     }
 
@@ -101,7 +101,7 @@ async::Task HttpServer::onClient(socketT client) {
             ctx.postData.append(ctx.buffer.data(), r);
         } else if (r == 0) {
             log(LogType::Warn, "Client closed during body");
-            closeSocket(client);
+            close(client);
             co_return;
         } else {
             log(LogType::Warn, "recv error");
@@ -112,7 +112,7 @@ async::Task HttpServer::onClient(socketT client) {
         if (std::chrono::duration_cast<std::chrono::seconds>(now - start)
                 .count() > timeout) {
             log(LogType::Warn, "Client took too long to send body");
-            closeSocket(client);
+            close(client);
             co_return;
         }
     }
@@ -156,7 +156,7 @@ async::Task HttpServer::onClient(socketT client) {
     co_return;
 }
 
-void HttpServer::handleRequest(socketT client, HttpConnection &connection,
+void HttpServer::handleRequest(int client, HttpConnection &connection,
                                Context &ctx) {
 
     std::vector<std::function<void(HttpConnection &)>> middlewares;
@@ -181,7 +181,7 @@ void HttpServer::handleRequest(socketT client, HttpConnection &connection,
     // Close connection and logs
     std::string http = connection.response.toHttpString();
     send(client, http.c_str(), http.size(), 0);
-    closeSocket(client);
+    close(client);
     logConnection(static_cast<int>(connection.response.status),
                   connection.response.method, connection.request.path);
 }
@@ -190,34 +190,42 @@ void HttpServer::handleRequest(socketT client, HttpConnection &connection,
 std::unordered_map<std::string, std::string>
 HttpServer::parseHeaders(const char *buffer, int headerSize) {
     std::unordered_map<std::string, std::string> receivedHeaders;
-    std::string headerStr(buffer, headerSize);
-    // https://stackoverflow.com/questions/12514510/iterate-through-lines-in-a-string-c
-    std::istringstream stream(headerStr);
-    std::string line;
+    receivedHeaders.reserve(10);
 
-    while (std::getline(stream, line)) {
-        // Remove new line character at the end of the line
+    std::string_view headers(buffer, headerSize);
+
+    int start = 0;
+    while (start < headers.size()) {
+        int end = headers.find('\n', start);
+        if (end == std::string_view::npos)
+            break;
+
+        std::string_view line = headers.substr(start, end - start);
+
         if (!line.empty() && line.back() == '\r')
-            line.pop_back();
+            line.remove_suffix(1);
 
         if (line.empty())
             break;
 
         // Split key and value
         int colon = line.find(':');
-        if (colon == std::string::npos)
+        if (colon == std::string_view::npos) {
+            start = end + 1;
             continue;
+        }
 
-        std::string key = line.substr(0, colon);
-        std::string value = line.substr(colon + 1);
+        std::string_view key = line.substr(0, colon);
+        std::string_view value = line.substr(colon + 1);
 
-        // Remove white spaces
-        // https://stackoverflow.com/questions/83439/remove-spaces-from-stdstring-in-c
-        key.erase(std::remove_if(key.begin(), key.end(), ::isspace), key.end());
         // Erase from 0 to the first non space/tab character
-        value.erase(0, value.find_first_not_of(" \t"));
+        int first = value.find_first_not_of(" \t");
+        if (first != std::string_view::npos)
+            value.remove_prefix(first);
 
-        receivedHeaders[key] = value;
+        receivedHeaders.emplace(std::string(key), std::string(value));
+
+        start = end + 1;
     }
 
     return receivedHeaders;

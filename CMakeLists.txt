@@ -5,36 +5,48 @@ include(FetchContent)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-# =========================
-# Dependencies
-# =========================
+# ============================
+#        Dependencies
+# ============================
 
 option(VESPER_FETCH_DEPS "Fetch dependencies locally" ON)
-
-if(VESPER_FETCH_DEPS)
-    include(FetchContent)
-
-    FetchContent_Declare(
-        glaze
-        GIT_REPOSITORY https://github.com/stephenberry/glaze.git
-        GIT_TAG v7.0.2
-    )
-
-    FetchContent_MakeAvailable(glaze)
-
-    find_package(ZLIB REQUIRED)
-else()
-    find_package(ZLIB REQUIRED)
-    find_package(glaze CONFIG REQUIRED)
-endif()
 
 set(GLAZE_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 set(GLAZE_ENABLE_BENCHMARKS OFF CACHE BOOL "" FORCE)
 set(GLAZE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
-# =========================
-# Library
-# =========================
+if(VESPER_FETCH_DEPS)
+    FetchContent_Declare(
+        glaze
+        GIT_REPOSITORY https://github.com/stephenberry/glaze.git
+        GIT_TAG v7.0.2
+    )
+    FetchContent_MakeAvailable(glaze)
+
+    FetchContent_Declare(
+        zlib
+        GIT_REPOSITORY https://github.com/madler/zlib.git
+        GIT_TAG v1.3.2
+    )
+    FetchContent_MakeAvailable(zlib)
+
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.17.0
+    )
+    FetchContent_MakeAvailable(googletest)
+
+else()
+    find_package(ZLIB REQUIRED)
+    find_package(glaze CONFIG REQUIRED)
+    find_package(GTest REQUIRED)
+endif()
+
+# ============================
+#          Library
+# ============================
 
 add_library(vesper
     src/http/HttpServer.cpp
@@ -78,12 +90,31 @@ install(EXPORT vesperTargets
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/vesper
 )
 
-# =========================
+# ============================
 # Example Binary (for testing)
-# =========================
+# ============================
 
 add_executable(vesper-app examples/main.cpp)
 
 target_link_libraries(vesper-app
     PRIVATE vesper::vesper
+    PUBLIC gtest_main
+)
+
+# ============================
+#       Testing binary
+# ============================
+
+add_executable(vesper-tests 
+    tests/main.cpp
+    tests/tcp/TcpServer_test.cpp
+    tests/http/HttpServer_test.cpp
+    tests/http/HttpConnection_test.cpp
+    tests/http/radixTree_test.cpp
+    tests/utils/urlEncoding_test.cpp
+)
+
+target_link_libraries(vesper-tests
+    PRIVATE vesper::vesper
+    PRIVATE gtest_main
 )

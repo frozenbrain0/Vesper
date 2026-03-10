@@ -7,6 +7,9 @@
 #include <fcntl.h>          // fcntl make recv non blocking
 #include <vector>           // Used for storing the client buffer
 #include <coroutine>        // Used for the async io
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 
 #include "../utils/logging.h"        // My own logging library/header
 #include "../http/HttpConnection.h"
@@ -15,14 +18,13 @@
 #include "../async/eventLoop.h"
 #include "../async/task.h"
 #include "../async/eventLoop_fwd.h"
-#include "../tcp/osFuncs.h"
 
 namespace vesper {
     // The foundation of the program
     // This handles the basic socket
     class TcpServer {
         protected: // Allows acces for subclasses
-            socketT listenSocket; // Socket that listens for new connections
+            int listenSocket; // Socket that listens for new connections
             int port; // The port the listenSocket runs on
             threadPool threads;
 
@@ -42,6 +44,8 @@ namespace vesper {
             void closeServer();
             
             // Functions that use Linux only functions
-            bool setSocketNonBlocking(socketT client);
+            bool setSocketNonBlocking(int client);
+            
+            bool isValidIP(const std::string &ip);
     };
 }
